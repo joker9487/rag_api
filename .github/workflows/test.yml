@@ -1,0 +1,14 @@
+name: tests
+
+on: [push, pull_request]        
+
+jobs:
+  test:
+    runs-on: ubuntu-latest      # 借一台 Ubuntu
+    steps:
+      - uses: actions/checkout@v4          # 1. 把 repo 抓下來
+      - uses: actions/setup-python@v5      # 2. 裝 Python
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt   # 3. 裝套件
+      - run: python -m pytest -v           # 4. 跑測試
