@@ -1,0 +1,12 @@
+.dockerignore.git/
+.github/
+__pycache__/
+.pytest_cache/
+test/
+*.log
+ask.py
+CLAUDE.md
+Dockerfile
+docker-compose.yml
+.dockerignore
+.gitignore

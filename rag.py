@@ -1,6 +1,6 @@
 import httpx
-
-OLLAMA = "http://localhost:11434"
+import os
+OLLAMA = os.getenv("OLLAMA_URL", "http://localhost:11434")
 EMBED_MODEL = "bge-m3"
 CHAT_MODEL = "qwen2.5:3b"
 
