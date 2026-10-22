@@ -6,6 +6,14 @@ services:
     environment:
       OLLAMA_URL: http://host.docker.internal:11434
       MONGO_URL: mongodb://mongo:27017
+    # Linux 上需要這行 host.docker.internal 才解析得到（Docker Desktop 已內建）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # 啟動時連不到 Ollama 會直接退出，自動重試
+    restart: unless-stopped
+    # 掛載知識庫，修改 docs.txt 後只需 docker compose restart api，不必重 build
+    volumes:
+      - ./docs.txt:/app/docs.txt:ro
     depends_on:
       - mongo
 
