@@ -3,8 +3,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 import rag
+import db
 from app import app
-
+import asyncio
 
 async def fake_embed(client, texts):
     return [[1.0, 0.0] for _ in texts]       # 假向量
@@ -13,11 +14,22 @@ async def fake_embed(client, texts):
 async def fake_generate(client, question, contexts):
     return "假的回答"
 
+async def fake_save(collection, doc):
+    return None
+
+async def fake_history( collection, limit):
+    return [{"question": "fake log q", "answer": "fake log ans"}]
+
+
 
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setattr(rag, "embed", fake_embed)
     monkeypatch.setattr(rag, "generate", fake_generate)
+
+    monkeypatch.setattr(db, "save_log", fake_save)
+    monkeypatch.setattr(db, "get_history", fake_history)
+
     with TestClient(app) as c:
         yield c
 
@@ -59,4 +71,42 @@ def test_ask_ollama_down(client, monkeypatch):
     monkeypatch.setattr(rag, "generate", broken_generate)
     r = client.post("/ask", json={"question": "上班時間是幾點？"})
     assert r.status_code==503
-    
+
+
+def test_get_history(client):
+    r = client.get("/history")
+    assert r.status_code == 200
+    assert r.json() == [{"question": "fake log q", "answer": "fake log ans"}]
+
+
+def test_get_history_limit_out_of_range(client):
+    r = client.get("/history?limit=0")
+    assert r.status_code == 422
+
+@pytest.mark.parametrize("limit", [0, 51, "abc"])
+def test_history_bad_limit(client, limit):
+    r = client.get(f"/history?limit={limit}")
+    assert r.status_code == 422
+
+import asyncio
+from pymongo.errors import PyMongoError
+
+import db
+
+
+class BrokenCollection:
+    async def insert_one(self, doc):
+        raise PyMongoError("連不到資料庫")
+
+
+def test_save_log_db_down(caplog):
+    asyncio.run(db.save_log(BrokenCollection(), {"question": "q"}))
+    assert "寫入問答紀錄失敗" in caplog.text
+
+def test_history_db_down(client, monkeypatch):
+    async def broken_history(collection, limit):
+        raise PyMongoError("連不到資料庫")
+
+    monkeypatch.setattr(db, "get_history", broken_history)
+    r = client.get("/history")
+    assert r.status_code == 503
