@@ -6,6 +6,8 @@ import rag
 import db
 from app import app
 import asyncio
+from pymongo.errors import PyMongoError
+
 
 async def fake_embed(client, texts):
     return [[1.0, 0.0] for _ in texts]       # 假向量
@@ -79,20 +81,12 @@ def test_get_history(client):
     assert r.json() == [{"question": "fake log q", "answer": "fake log ans"}]
 
 
-def test_get_history_limit_out_of_range(client):
-    r = client.get("/history?limit=0")
-    assert r.status_code == 422
+
 
 @pytest.mark.parametrize("limit", [0, 51, "abc"])
 def test_history_bad_limit(client, limit):
     r = client.get(f"/history?limit={limit}")
     assert r.status_code == 422
-
-import asyncio
-from pymongo.errors import PyMongoError
-
-import db
-
 
 class BrokenCollection:
     async def insert_one(self, doc):
