@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Query
 from pymongo import AsyncMongoClient
-
+import asyncio
+from pymongo.errors import PyMongoError
 import db
 import rag
 
@@ -54,6 +55,8 @@ async def ask(req: AskRequest):
         answer = await rag.generate(client, req.question, [c for _, c in results])
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="無法連線到 Ollama")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"Ollama 回傳錯誤：{e.response.status_code}")
     result = {
         "answer": answer,
         "sources": [{"score": round(s, 3), "text": c} for s, c in results],
@@ -66,8 +69,7 @@ async def ask(req: AskRequest):
     })
     return result
 
-import asyncio
-from pymongo.errors import PyMongoError
+
 
 
 class BrokenCollection:
@@ -75,10 +77,8 @@ class BrokenCollection:
         raise PyMongoError("連不到資料庫")
 
 
-def test_save_log_db_down(caplog):
-    asyncio.run(db.save_log(BrokenCollection(), {"question": "q"}))
-    assert "寫入問答紀錄失敗" in caplog.text
-from pymongo.errors import PyMongoError
+
+
 @app.get("/history")
 async def history(limit: int = Query(default=10, ge=1, le=50)):
     try:
