@@ -12,7 +12,7 @@ import asyncio
 from pymongo.errors import PyMongoError
 import db
 import rag
-
+import logging
 state = {}
 
 
@@ -56,6 +56,7 @@ async def ask(req: AskRequest):
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="無法連線到 Ollama")
     except httpx.HTTPStatusError as e:
+        logging.error(f"Ollama 回傳錯誤：{e.response.status_code} {e.response.text}")
         raise HTTPException(status_code=502, detail=f"Ollama 回傳錯誤：{e.response.status_code}")
     result = {
         "answer": answer,

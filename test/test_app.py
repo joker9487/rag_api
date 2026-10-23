@@ -104,3 +104,14 @@ def test_history_db_down(client, monkeypatch):
     monkeypatch.setattr(db, "get_history", broken_history)
     r = client.get("/history")
     assert r.status_code == 503
+
+def test_ask_ollama_error(client, monkeypatch):
+    async def broken_generate(client, question, contexts):
+        req = httpx.Request("POST", "http://ollama/api/generate")
+        resp = httpx.Response(404, request=req, text='{"error": "model not found"}')
+        raise httpx.HTTPStatusError("Ollama 回傳 404", request=req, response=resp)
+    
+    monkeypatch.setattr(rag, "generate", broken_generate)
+    r = client.post("/ask", json={"question": "上班時間是幾點？"})
+    assert r.status_code == 502
+    assert "404" in r.json()["detail"]
