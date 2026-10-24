@@ -70,14 +70,26 @@ async def ask(req: AskRequest):
     })
     return result
 
-
+@app.post("/search")
+async def search(req: AskRequest):
+    client = state["client"]
+    try:
+        results = await rag.retrieve(client, req.question, state["chunks"], state["vectors"], req.k)
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="無法連線到 Ollama")
+    except httpx.HTTPStatusError as e:
+        logging.error(f"Ollama 回傳錯誤：{e.response.status_code} {e.response.text}")
+        raise HTTPException(status_code=502, detail=f"Ollama 回傳錯誤：{e.response.status_code}")
+    result = {
+        "sources": [{"score": round(s, 3), "text": c} for s, c in results],
+    }
+    return result
+    
 
 
 class BrokenCollection:
     async def insert_one(self, doc):
         raise PyMongoError("連不到資料庫")
-
-
 
 
 @app.get("/history")

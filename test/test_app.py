@@ -92,7 +92,6 @@ class BrokenCollection:
     async def insert_one(self, doc):
         raise PyMongoError("連不到資料庫")
 
-
 def test_save_log_db_down(caplog):
     asyncio.run(db.save_log(BrokenCollection(), {"question": "q"}))
     assert "寫入問答紀錄失敗" in caplog.text
@@ -115,3 +114,25 @@ def test_ask_ollama_error(client, monkeypatch):
     r = client.post("/ask", json={"question": "上班時間是幾點？"})
     assert r.status_code == 502
     assert "404" in r.json()["detail"]
+
+
+def test_search(client):
+    r = client.post("/search", json={"question": "上班時間是幾點","k":1})
+    assert r.status_code == 200
+    assert len(r.json()["sources"])==1
+    
+    
+
+def test_search_empty(client):
+    r = client.post("/search", json={"question":""})
+    assert r.status_code ==422
+
+def test_search_down(client, monkeypatch):
+    async def broken_search(client, question,chunks,vetorsc,k):
+        raise httpx.ConnectError("連不到 Ollama")
+
+    monkeypatch.setattr(rag, "retrieve", broken_search)
+    r = client.post("/search", json={"question": "上班時間是幾點"})
+    assert r.status_code == 503
+
+
